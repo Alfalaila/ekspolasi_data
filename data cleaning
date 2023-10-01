@@ -1,0 +1,92 @@
+#Phyton
+import pandas as pd
+import numpy as np
+
+#visualisasi data
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn import preprocessing
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.holtwinters import SimpleExpSmoothing, Holt
+from statsmodels.tsa.arima.model import ARIMA
+from pandas .plotting import autocorrelation_plot
+
+import warnings
+warnings.filterwarnings('ignore')
+
+df_Customer = pd.read_csv ('Case Study - Customer.csv', delimiter=';')
+df_Product = pd.read_csv ('Case Study - Product.csv',delimiter=';')
+df_Transaction = pd.read_csv ('Case Study - Transaction.csv', delimiter=';')
+df_Store = pd.read_csv ('Case Study - Store.csv',delimiter=';')
+
+df_Customer.head()
+df_Customer.duplicated().sum()
+df_Customer.isnull().sum()
+df_Customer[df_Customer['Marital Status'].isnull()]
+df_Product.head
+
+# data cleaning customer
+df_Customer['Income']= df_Customer['Income'].replace('[,]','_', regex=True).astype('float')
+
+#data cleaning store
+df_Store['Latitude']=df_Store['Latitude'].replace('[,]','_', regex=True).astype('float')
+df_Store['Longitude']=df_Store['Longitude'].replace('[,]','_', regex=True).astype('float')
+df_Transaction['Date']=pd.to_datetime(df_Transaction['Date'])
+
+df_Transaction['TransactionID'].value_counts()
+df_merge=pd.merge(df_Customer, df_Transaction, on=['CustomerID'])
+df_merge=pd.merge(df_merge, df_Product.drop(columns=['Price']), on=['ProductID'])
+df_merge=pd.merge(df_merge, df_Store, on=['StoreID'])
+
+#model machine learning regresi (time series)
+df_regresi = df_merge.groupby(['Date']).agg({
+    'Qty' : 'sum'
+}).reset_index()
+df_regresi
+
+from statsmodels.tsa.stattools import adfuller
+
+results = adfuller(df_regresi['Qty'])
+print('ADF Statistic: %f' % results[0])
+print('p-value: %f' % results[1])
+print('Critical Values:')
+for key, value in results[4].items():
+    print('\t%s: %.3f' % (key, value))
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+def rmse(y_actual, y_pred):
+    rmse_value = mean_squared_error(y_actual, y_pred) ** 0.5
+    return rmse_value
+
+def eval(y_actual, y_pred):
+    rmse_value = rmse(y_actual, y_pred)
+    mae_value = mean_absolute_error(y_actual, y_pred)
+    print(f'RMSE value: {rmse_value}')
+    print(f'MAE value: {mae_value}')
+    return rmse_value, mae_value
+
+#arima
+df_train=df_train.set_index('Date')
+df_test = df_test.set_set_index('Date')
+y= df_train ['Qty']
+ARIMAmodel = ARIMA (y, order=(40,2,1))
+ARIMAmodel = ARIMAmodel.fit()
+
+y_pred = ARIMAmodel.get_forecaat(len(df_test))
+
+y_pred_df = y_pred.conf_int()
+y_pred_df['pedictions'] = ARIMAmodel.predict(start =y_pred_df.index(0), end= y_pred_df.index[-1])
+y_pred_df.index = df_test.index
+y_pred_out = y_pred_df['predictions']
+eval(df_test['Qty'], y_pred_out)
+
+plt.figure(figsize==(20,5))
+plt.plot(df_train['Qty'])
+plt.plot(df_test['Qty'], color=='black',label = 'ARIMA Predictions')
+plt.legend()
